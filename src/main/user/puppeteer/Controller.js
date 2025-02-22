@@ -9,8 +9,46 @@ class Controller {
         puppeteer.use(StealthPlugin());
         this.browser = null;
         this.page = null;
+        this.userOptions = puppeteerOptions;
 
-
+        // const args = [
+        //     "--no-sandbox",
+        //     "--disable-setuid-sandbox",
+        //     "--window-position=0,0",
+        //     "--ignore-certificate-errors",
+        //     "--ignore-certificate-errors-spki-list",
+        //     "--disable-blink-features=AutomationControlled",
+        //     "--disable-infobars",
+        //     puppeteerOptions.userAgent && `--user-agent=${puppeteerOptions.userAgent}`,
+        // ];
+        // fetch("https://proxyxoay.shop/api/get.php?key=tTAihNdtgvRtwkdKJNsDUb&&nhamang=random&&tinhthanh=0")
+        //     .then(res => res.json())
+        //     .then(res => {
+        //         if (res.status === 100) {
+        //             const [proxyIP, proxyPort, proxyUsername, proxyPassword] = res.proxyhttp.split(":");
+        //             this.proxyOption = { proxyUsername, proxyPassword, proxyIP, proxyPort };
+        //             args.push(`--proxy-server=${proxyIP}:${proxyPort}`);
+        //         }
+        //         else if (puppeteerOptions?.proxy) {
+        //             if (puppeteerOptions.proxy.split(":").length !== 4) {
+        //                 this.proxyOption = undefined;
+        //             } else {
+        //                 const [proxyIP, proxyPort, proxyUsername, proxyPassword] = puppeteerOptions.proxy.split(":");
+        //                 this.proxyOption = { proxyUsername, proxyPassword, proxyIP, proxyPort };
+        //                 args.push(`--proxy-server=${proxyIP}:${proxyPort}`);
+        //             }
+        //         } else {
+        //             this.proxyOption = undefined;
+        //         };
+        //     })
+        // this.puppeteerOptions = {
+        //     ignoreHTTPSErrors: true,
+        //     args: args,
+        //     executablePath: executablePath,
+        //     ...puppeteerOptions,
+        // };
+    }
+    async prepareBrowser() {
         const args = [
             "--no-sandbox",
             "--disable-setuid-sandbox",
@@ -19,29 +57,57 @@ class Controller {
             "--ignore-certificate-errors-spki-list",
             "--disable-blink-features=AutomationControlled",
             "--disable-infobars",
-            puppeteerOptions.userAgent && `--user-agent=${puppeteerOptions.userAgent}`,
+            this.userOptions.userAgent && `--user-agent=${this.userOptions.userAgent}`,
         ];
-        if (puppeteerOptions?.proxy) {
-            if (puppeteerOptions.proxy.split(":").length !== 4) {
-                this.proxyOption = undefined;
-            } else {
-                const [proxyIP, proxyPort, proxyUsername, proxyPassword] = puppeteerOptions.proxy.split(":");
-                this.proxyOption = { proxyUsername, proxyPassword, proxyIP, proxyPort };
-                args.push(`--proxy-server=${proxyIP}:${proxyPort}`);
-            }
+        const res = await fetch("https://proxyxoay.shop/api/get.php?key=tTAihNdtgvRtwkdKJNsDUb&&nhamang=random&&tinhthanh=0")
+        const data = await res.json();
+        if (data.status === 100) {
+            const [proxyIP, proxyPort, proxyUsername, proxyPassword] = data.proxyhttp.split(":");
+            this.proxyOption = { proxyUsername, proxyPassword, proxyIP, proxyPort };
+            args.push(`--proxy-server=${proxyIP}:${proxyPort}`);
+        } else if (data.status === 101) {
+            const regex = /\d+/g;
+            const result = data.message.match(regex);
+            await new Promise(resolve => setTimeout(resolve, parseInt(result[0]) * 1000));
+            return await this.prepareBrowser();
         } else {
-            this.proxyOption = undefined;
-        };
+            console.log(data);
+            process.exit();
+        }
+
+        // .then(res => res.json())
+        // .then(res => {
+        //     if (res.status === 100) {
+        // const [proxyIP, proxyPort, proxyUsername, proxyPassword] = res.proxyhttp.split(":");
+        // this.proxyOption = { proxyUsername, proxyPassword, proxyIP, proxyPort };
+        // args.push(`--proxy-server=${proxyIP}:${proxyPort}`);
+        //     }
+        //     else if (this.userOptions?.proxy) {
+        //         if (this.userOptions.proxy.split(":").length !== 4) {
+        //             this.proxyOption = undefined;
+        //         } else {
+        //             const [proxyIP, proxyPort, proxyUsername, proxyPassword] = this.userOptions.proxy.split(":");
+        //             this.proxyOption = { proxyUsername, proxyPassword, proxyIP, proxyPort };
+        //             args.push(`--proxy-server=${proxyIP}:${proxyPort}`);
+        //         }
+        //     } else {
+        //         this.proxyOption = undefined;
+        //     };
+        // })
         this.puppeteerOptions = {
             ignoreHTTPSErrors: true,
             args: args,
             executablePath: executablePath,
-            ...puppeteerOptions,
+            ...this.userOptions,
         };
     }
     async initBrowser() {
+        await this.prepareBrowser();
+        // process.exit();
         this.browser = await puppeteer.launch(this.puppeteerOptions);
         this.page = await this.browser.newPage();
+        // proxy
+
         if (this.proxyOption) {
             await this.page.authenticate({
                 username: this.proxyOption.proxyUsername,
